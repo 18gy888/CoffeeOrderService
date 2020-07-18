@@ -1,4 +1,4 @@
-package servlet.shoppingcart;
+package servlet.order;
 
 
 import java.io.IOException;
@@ -24,14 +24,14 @@ import net.sf.json.JSONObject;
 /**
  * Servlet implementation class getUserInfo
  */
-@WebServlet("/api/shoppingcart/getShoppingCart")
-public class GetShoppingCart extends HttpServlet {
+@WebServlet("/api/ordermanage/getAllOrder")
+public class GetAllOrder extends HttpServlet {
 	private static final long serialVersionUID = 1L;
        
     /**
      * @see HttpServlet#HttpServlet()
      */
-    public GetShoppingCart() {
+    public GetAllOrder() {
         super();
         // TODO Auto-generated constructor stub
     }
@@ -57,41 +57,31 @@ public class GetShoppingCart extends HttpServlet {
 			Class.forName("com.mysql.cj.jdbc.Driver");
 			conn = DriverManager.getConnection("jdbc:mysql://106.13.201.225:3306/coffee?useSSL=false&serverTimezone=GMT","coffee","TklRpGi1");
 			Statement stmt = conn.createStatement();
-			ServletInputStream is;
 			try {
-				is = request.getInputStream();
-				int nRead = 1;
-				int nTotalRead = 0;
-				byte[] bytes = new byte[10240];
-				while (nRead > 0) {
-					nRead = is.read(bytes, nTotalRead, bytes.length - nTotalRead);
-					if (nRead > 0)
-						nTotalRead = nTotalRead + nRead;
-				}
-				String str = new String(bytes, 0, nTotalRead, "utf-8");
-				JSONObject jsonObj = JSONObject.fromObject(str);
-				String userId = (String)session.getAttribute("userId");
-				String sql = "select * from user_meal where userId= ?";
+				String sql = "select * from orders";
+				String sql2 = "select userName from user where userId=?";
+				String sql3 = "select sum(amount*price)as totalPrice from meal_order where orderId=?";
 				PreparedStatement ps = conn.prepareStatement(sql);
-				ps.setString(1, userId);
 				ResultSet rs = ps.executeQuery();
 				JSONObject jsonobj = new JSONObject();
 				JSONObject jsonobj2 = new JSONObject();
 				JSONArray  jsonarray = new JSONArray();
 				while(rs.next()){
-					String sql_next = "select * from meal where mealId= ?";
-					PreparedStatement ps_next = conn.prepareStatement(sql_next);
-					ps_next.setString(1,rs.getString("mealId"));
-					ResultSet rs_next = ps_next.executeQuery();
-					while(rs_next.next())
-					{
-						jsonobj2.put("mealName",rs_next.getString("mealName")==null?"":rs_next.getString("mealName"));
-						jsonobj2.put("mealId",rs.getString("mealId")==null?"":rs.getString("mealId"));
-						jsonobj2.put("userId",rs.getString("userId")==null?"":rs.getString("userId"));
-						jsonobj2.put("quality",rs.getObject("quality")==null?"":rs.getInt("quality"));				
-						jsonobj2.put("price",rs.getObject("price")==null?"":rs.getInt("price"));
-						jsonarray.add(jsonobj2);
-					}
+					String userId = rs.getString("userId");
+					String orderId = rs.getString("orderId");
+					jsonobj2.put("orderId",rs.getString("orderId"));
+					PreparedStatement ps2=conn.prepareStatement(sql2);
+					ps2.setString(1, userId);
+					ResultSet rs2=ps2.executeQuery();
+					rs2.next();
+					PreparedStatement ps3=conn.prepareStatement(sql3);
+					ps3.setString(1, orderId);
+					ResultSet rs3=ps3.executeQuery();
+					rs3.next();
+					jsonobj2.put("userName",rs2.getString("userName"));
+					jsonobj2.put("createdTime",rs.getString("createdTime"));
+					jsonobj2.put("totalPrice",rs3.getDouble("totalPrice"));
+					jsonarray.add(jsonobj2);
 				}
 				if(jsonarray.isEmpty()) {
 					jsonobj.put("success", false);

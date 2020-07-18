@@ -1,5 +1,4 @@
-package servlet.shoppingcart;
-
+package servlet.order;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -7,7 +6,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
 
 import javax.servlet.ServletException;
@@ -16,22 +14,21 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 /**
- * Servlet implementation class getUserInfo
+ * Servlet implementation class GetOrderDetail
  */
-@WebServlet("/api/shoppingcart/getShoppingCart")
-public class GetShoppingCart extends HttpServlet {
+@WebServlet("/api/ordermanage/getOrderDetail")
+public class GetOrderDetail extends HttpServlet {
 	private static final long serialVersionUID = 1L;
        
     /**
      * @see HttpServlet#HttpServlet()
      */
-    public GetShoppingCart() {
+    public GetOrderDetail() {
         super();
         // TODO Auto-generated constructor stub
     }
@@ -48,11 +45,13 @@ public class GetShoppingCart extends HttpServlet {
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+	/**
+	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
+	 */
 		// TODO Auto-generated method stub
 		response.setContentType("text/json; charset=utf-8");
 		PrintWriter out = response.getWriter();
 		Connection conn = null;
-		HttpSession session = request.getSession();
 		try {
 			Class.forName("com.mysql.cj.jdbc.Driver");
 			conn = DriverManager.getConnection("jdbc:mysql://106.13.201.225:3306/coffee?useSSL=false&serverTimezone=GMT","coffee","TklRpGi1");
@@ -70,49 +69,42 @@ public class GetShoppingCart extends HttpServlet {
 				}
 				String str = new String(bytes, 0, nTotalRead, "utf-8");
 				JSONObject jsonObj = JSONObject.fromObject(str);
-				String userId = (String)session.getAttribute("userId");
-				String sql = "select * from user_meal where userId= ?";
+				String orderId = jsonObj.getString("orderId");
+				String sql = "select mealId, amount, price from meal_order where orderId= ?";
+				String sql2 = "select mealName from meal where mealId=?";
 				PreparedStatement ps = conn.prepareStatement(sql);
-				ps.setString(1, userId);
+				ps.setString(1, orderId);
 				ResultSet rs = ps.executeQuery();
 				JSONObject jsonobj = new JSONObject();
-				JSONObject jsonobj2 = new JSONObject();
-				JSONArray  jsonarray = new JSONArray();
+				JSONArray  array = new JSONArray();
 				while(rs.next()){
-					String sql_next = "select * from meal where mealId= ?";
-					PreparedStatement ps_next = conn.prepareStatement(sql_next);
-					ps_next.setString(1,rs.getString("mealId"));
-					ResultSet rs_next = ps_next.executeQuery();
-					while(rs_next.next())
-					{
-						jsonobj2.put("mealName",rs_next.getString("mealName")==null?"":rs_next.getString("mealName"));
-						jsonobj2.put("mealId",rs.getString("mealId")==null?"":rs.getString("mealId"));
-						jsonobj2.put("userId",rs.getString("userId")==null?"":rs.getString("userId"));
-						jsonobj2.put("quality",rs.getObject("quality")==null?"":rs.getInt("quality"));				
-						jsonobj2.put("price",rs.getObject("price")==null?"":rs.getInt("price"));
-						jsonarray.add(jsonobj2);
-					}
+					String mealId = rs.getString("mealId");
+					int amount = rs.getInt("amount");
+					jsonobj.put("amount",amount);
+					jsonobj.put("mealId",mealId);
+					jsonobj.put("price", rs.getDouble("price"));
+					PreparedStatement ps2 = conn.prepareStatement(sql2);
+					ps2.setString(1, mealId);
+					ResultSet rs2 = ps2.executeQuery();
+					rs2.next();
+					jsonobj.put("mealName", rs2.getString("mealName"));
+					array.add(jsonobj);
 				}
-				if(jsonarray.isEmpty()) {
-					jsonobj.put("success", false);
-					jsonobj.put("msg", "为空");
-				}
-				else {
-					jsonobj.put("success", true);
-					jsonobj.put("msg", "操作成功");
-					jsonobj.put("data",jsonarray);
-				}
+				JSONObject jsonobj2 = new JSONObject();
+				jsonobj2.put("data", array);
+				jsonobj2.put("success", true);
 				out = response.getWriter();
-				out.println(jsonobj);
+				out.println(jsonobj2);
 				rs.close();
 				stmt.close();
 				conn.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-		} catch (SQLException | ClassNotFoundException e) {
+			
+		}
+		catch(Exception e) {
 			e.printStackTrace();
 		}
 	}
-
 }

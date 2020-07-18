@@ -1,38 +1,33 @@
-package servlet.menu;
+package servlet.rbac;
 
-import java.io.File;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.UUID;
 
 import javax.servlet.ServletException;
-import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.Part;
+import javax.servlet.http.HttpSession;
 
-import com.google.gson.*;
-// import net.sf.json.JSONObject;
+import net.sf.json.JSONObject;
 
 /**
- * Servlet implementation class UpLoadImg
+ * Servlet implementation class ChangePassword
  */
-@WebServlet("/api/menu/uploadImg")
-@MultipartConfig
-public class UpLoadImg extends HttpServlet {
+@WebServlet("/api/usermanage/ChangePassword")
+public class ChangePassword extends HttpServlet {
 	private static final long serialVersionUID = 1L;
        
     /**
      * @see HttpServlet#HttpServlet()
      */
-    public UpLoadImg() {
+    public ChangePassword() {
         super();
         // TODO Auto-generated constructor stub
     }
@@ -41,67 +36,75 @@ public class UpLoadImg extends HttpServlet {
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		response.setCharacterEncoding("UTF-8");
-    	response.setHeader("Allow", "POST");
-    	response.sendError(405);
+		// TODO Auto-generated method stub
+		doPost(request,response);
 	}
 
 	/**
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		// TODO Auto-generated method stub
 		/* 设置响应头部 */
     	response.setCharacterEncoding("UTF-8");
 		response.setContentType("text/json; charset=utf-8");
 		PrintWriter out = response.getWriter();
 		
-		/* 读取请求内容 */
+		/* 读取请求内容,获取session*/
+		HttpServletRequest req = (HttpServletRequest)request;
+		HttpSession session = req.getSession();
 		request.setCharacterEncoding("UTF-8");
-		String mealId = request.getParameter("mealId");
+		BufferedReader reader = request.getReader();
+		String msg = null;
+		StringBuilder message= new StringBuilder();
+		while ((msg = reader.readLine()) != null){			
+			message.append(msg);
+		}		
+		String jsonStr = message.toString();
 		
-		Part part=request.getPart("file");
-		String realFileName = part.getSubmittedFileName();
-		String type = realFileName.substring(realFileName.lastIndexOf("."));			
-		String fileName = UUID.randomUUID().toString() + type;
-		String path=getServletContext().getRealPath("/");
-		path += ".." + File.separator + "Attachment" + File.separator + "MenuImage" + File.separator + fileName;
-		part.write(path);
-		
+		/* 处理请求内容为空的情况 */
+		if(jsonStr.isEmpty()) 
+		{
+			response.sendError(400);
+			return;
+		}
+		/* 解析JSON获取数据 */
+		JSONObject jsonObj = JSONObject.fromObject(jsonStr);
+		String prePassword = jsonObj.getString("prePassword");
+		String newPassword = jsonObj.getString("newPassword");
 		Connection conn = null;
-		Statement stmt = null;
 		try {
 			/* 连接数据库 */
 			Class.forName("com.mysql.cj.jdbc.Driver");
-			conn = DriverManager.getConnection("jdbc:mysql://106.13.201.225:3306/coffee?serverTimezone=GMT", "coffee", "TklRpGi1");
-			stmt = conn.createStatement();
+			conn = DriverManager.getConnection("jdbc:mysql://106.13.201.225:3306/coffee?useSSL=false&serverTimezone=GMT","coffee","TklRpGi1");
 			
-			/* 构建SQL语句 */
-			String sql = "UPDATE meal SET pictureUrl=? WHERE mealId=?;";
+			/* 构建SQL语句，通过roleName找到roleId  */			
+			String sql = "update user set password=? where userId=? and password=? ";
+			String userId = (String)session.getAttribute("userId");
 			PreparedStatement ps = conn.prepareStatement(sql);
+			ps.setString(1, newPassword);
+			ps.setString(2, userId);
+			ps.setString(3, prePassword);
 			
-			ps.setString(1, path);
-			ps.setString(2, mealId);
-			
-			
-			/* 执行SQL语句 */
+			/*执行*/
 			ps.executeUpdate();
 			
 			/* 处理执行结果 */
-			JsonObject responseJson = new JsonObject();
-			responseJson.addProperty("success", true);
-			responseJson.addProperty("msg", "上传成功");
+			JSONObject responseJson = new JSONObject();
+			responseJson.put("success", true);
+			responseJson.put("msg","修改成功");
 			out.println(responseJson);
-		} catch (SQLException e) {
+		}
+		catch (SQLException e) {
 			e.printStackTrace();
 			/* 处理执行结果 */
-			JsonObject responseJson = new JsonObject();
-			responseJson.addProperty("success",false);
-			responseJson.addProperty("msg", e.getMessage());
-			out.print(responseJson);
+			JSONObject responseJson = new JSONObject();
+			responseJson.put("success",false);
+			responseJson.put("msg", e.getMessage());
+			out.println(responseJson);
 			try {
 				conn.rollback();
 			} catch (SQLException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 		} catch (ClassNotFoundException e) {
@@ -109,13 +112,11 @@ public class UpLoadImg extends HttpServlet {
 		} finally {
 			/* 无论如何关闭连接 */
 			try {
-				stmt.close();
 				conn.close();
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
-		}
-		out.close();
+		}	
 	}
 
 }
